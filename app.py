@@ -1,167 +1,139 @@
-import sys
-from pathlib import Path
-
 import pygame
+import numpy as np
 import torch
-import torch.nn.functional as F
+from PIL import Image
+from model import SimpleCNN
+from preprocess import MNIST_TRANSFORM
 
-from model import load_model
-from utils import preprocess_canvas
+pygame.init()
+pygame.font.init()
 
-CANVAS_SIZE = 280
-PREVIEW_SIZE = 84
-BAR_WIDTH = 220
-BAR_HEIGHT = 18
-PANEL_WIDTH = 300
-WINDOW_WIDTH = CANVAS_SIZE + PANEL_WIDTH
-WINDOW_HEIGHT = CANVAS_SIZE + 80
-DRAW_COLOR = (0, 0, 0)
-BG_COLOR = (255, 255, 255)
-PANEL_BG = (245, 245, 250)
-TEXT_COLOR = (30, 30, 30)
-ACCENT_COLOR = (52, 120, 246)
-MUTED_COLOR = (120, 120, 130)
+CANVAS_SIZE = 300
+UI_WIDTH = 380
+HEIGHT = 350
+screen = pygame.display.set_mode((CANVAS_SIZE + UI_WIDTH, HEIGHT))
+pygame.display.set_caption("Neural Vision: Live CNN Engine")
 
+BG_COLOR = (24, 24, 27)
+CANVAS_BG = (15, 15, 18)
+TEXT_DIM = (161, 161, 170)
+TEXT_BRIGHT = (244, 244, 245)
+BAR_BG = (63, 63, 70)
+ACCENT_COLOR = (16, 185, 129)
+BRUSH_COLOR = (255, 255, 255)
 
-def draw_probability_bars(screen, font, probabilities, prediction, origin):
-  x, y = origin
-  title = font.render("Class Probabilities", True, TEXT_COLOR)
-  screen.blit(title, (x, y))
-  y += 30
+sys_font = "segoeui, helvetica, arial"
+title_font = pygame.font.SysFont(sys_font, 22, bold=True)
+label_font = pygame.font.SysFont(sys_font, 16, bold=True)
+big_font = pygame.font.SysFont(sys_font, 48, bold=True)
 
-  for digit, prob in enumerate(probabilities):
-    label = font.render(str(digit), True, TEXT_COLOR)
-    screen.blit(label, (x, y + 2))
-
-    bar_x = x + 24
-    pygame.draw.rect(screen, (220, 220, 228), (bar_x, y, BAR_WIDTH, BAR_HEIGHT), border_radius=4)
-    fill_width = int(BAR_WIDTH * prob)
-    color = ACCENT_COLOR if digit == prediction else (160, 170, 190)
-    if fill_width > 0:
-      pygame.draw.rect(screen, color, (bar_x, y, fill_width, BAR_HEIGHT), border_radius=4)
-
-    pct = font.render(f"{prob * 100:5.1f}%", True, MUTED_COLOR)
-    screen.blit(pct, (bar_x + BAR_WIDTH + 10, y + 1))
-    y += 26
-
-
-def draw_preview(screen, tensor, origin):
-  x, y = origin
-  array = tensor.squeeze().numpy()
-  array = ((array * 0.3081) + 0.1307).clip(0, 1)
-  pixels = (array * 255).astype("uint8")
-  surface = pygame.surfarray.make_surface(pixels.T)
-  scaled = pygame.transform.scale(surface, (PREVIEW_SIZE, PREVIEW_SIZE))
-  pygame.draw.rect(screen, (200, 200, 210), (x - 1, y - 1, PREVIEW_SIZE + 2, PREVIEW_SIZE + 2), 1)
-  screen.blit(scaled, (x, y))
-
-
-def main():
-  weights_path = Path("mnist_cnn.pt")
-  if not weights_path.exists():
-    print("Model weights not found. Run: python train.py")
-    sys.exit(1)
-
-  pygame.init()
-  pygame.display.set_caption("MNIST Digit Recognition")
-  screen = pygame.display.set_mode((WINDOW_WIDTH, WINDOW_HEIGHT))
-  clock = pygame.time.Clock()
-
-  title_font = pygame.font.SysFont("menlo", 28, bold=True)
-  label_font = pygame.font.SysFont("menlo", 18)
-  hint_font = pygame.font.SysFont("menlo", 14)
-
-  canvas = pygame.Surface((CANVAS_SIZE, CANVAS_SIZE))
-  canvas.fill(BG_COLOR)
-
-  model, device = load_model(weights_path)
-  prediction = None
-  probabilities = [0.0] * 10
-  drawing = False
-  last_pos = None
-  predict_timer = 0
-  predict_interval = 100
-
-  running = True
-  while running:
-    dt = clock.tick(60)
-    predict_timer += dt
-
-    for event in pygame.event.get():
-      if event.type == pygame.QUIT:
-        running = False
-      elif event.type == pygame.KEYDOWN:
-        if event.key == pygame.K_c:
-          canvas.fill(BG_COLOR)
-          prediction = None
-          probabilities = [0.0] * 10
-          predict_timer = predict_interval
-        elif event.key == pygame.K_ESCAPE:
-          running = False
-      elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
-        mx, my = event.pos
-        if mx < CANVAS_SIZE and my < CANVAS_SIZE:
-          drawing = True
-          last_pos = (mx, my)
-          pygame.draw.circle(canvas, DRAW_COLOR, last_pos, 12)
-      elif event.type == pygame.MOUSEBUTTONUP and event.button == 1:
-        drawing = False
-        last_pos = None
-        predict_timer = predict_interval
-      elif event.type == pygame.MOUSEMOTION and drawing:
-        mx, my = event.pos
-        if mx < CANVAS_SIZE and my < CANVAS_SIZE:
-          if last_pos:
-            pygame.draw.line(canvas, DRAW_COLOR, last_pos, (mx, my), 24)
-          pygame.draw.circle(canvas, DRAW_COLOR, (mx, my), 12)
-          last_pos = (mx, my)
-
-    if predict_timer >= predict_interval:
-      predict_timer = 0
-      tensor = preprocess_canvas(canvas).to(device)
-      with torch.no_grad():
-        logits = model(tensor)
-        probs = F.softmax(logits, dim=1).squeeze().cpu().tolist()
-      prediction = int(max(range(10), key=lambda i: probs[i]))
-      probabilities = probs
-
-    screen.fill(PANEL_BG)
-    screen.blit(canvas, (0, 0))
-    pygame.draw.rect(screen, (200, 200, 210), (0, 0, CANVAS_SIZE, CANVAS_SIZE), 2)
-
-    panel_x = CANVAS_SIZE + 20
-    heading = title_font.render("Prediction", True, TEXT_COLOR)
-    screen.blit(heading, (panel_x, 20))
-
-    if prediction is not None and max(probabilities) > 0.01:
-      digit_text = title_font.render(str(prediction), True, ACCENT_COLOR)
-      conf = label_font.render(f"{max(probabilities) * 100:.1f}% confidence", True, MUTED_COLOR)
-      screen.blit(digit_text, (panel_x, 58))
-      screen.blit(conf, (panel_x + 40, 66))
-    else:
-      placeholder = label_font.render("Draw a digit", True, MUTED_COLOR)
-      screen.blit(placeholder, (panel_x, 62))
-
-    preview_label = label_font.render("28x28 input", True, MUTED_COLOR)
-    screen.blit(preview_label, (panel_x, 110))
-    tensor = preprocess_canvas(canvas)
-    draw_preview(screen, tensor, (panel_x, 134))
-
-    draw_probability_bars(screen, label_font, probabilities, prediction, (panel_x, 240))
-
-    hints = [
-      "Left-click drag to draw",
-      "C to clear canvas",
-      "Esc to quit",
-    ]
-    for i, hint in enumerate(hints):
-      text = hint_font.render(hint, True, MUTED_COLOR)
-      screen.blit(text, (10, CANVAS_SIZE + 14 + i * 20))
-
-    pygame.display.flip()
-
+model = SimpleCNN()
+try:
+  model.load_state_dict(torch.load("cnn_weights.pth", weights_only=True))
+except FileNotFoundError:
+  print("Error: Run train.py first to generate cnn_weights.pth!")
   pygame.quit()
+  raise SystemExit(1)
+model.eval()
+
+canvas = pygame.Surface((CANVAS_SIZE, CANVAS_SIZE))
+canvas.fill(CANVAS_BG)
+drawing = False
+last_pos = None
+probs = np.zeros(10)
 
 
-if __name__ == "__main__":
-  main()
+def predict_digit(surface):
+  small = pygame.transform.smoothscale(surface, (28, 28))
+  array = pygame.surfarray.array3d(small)
+  gray = np.transpose(array[:, :, 0])
+  tensor = MNIST_TRANSFORM(Image.fromarray(gray)).unsqueeze(0)
+
+  with torch.no_grad():
+    logits = model(tensor)
+    probabilities = torch.softmax(logits, dim=1).squeeze().numpy()
+  return probabilities
+
+
+def draw_line_round_corners(surface, color, start, end, radius):
+  dx, dy = end[0] - start[0], end[1] - start[1]
+  distance = max(abs(dx), abs(dy))
+  if distance == 0:
+    pygame.draw.circle(surface, color, start, radius)
+    return
+  for i in range(distance):
+    x = int(start[0] + float(i) / distance * dx)
+    y = int(start[1] + float(i) / distance * dy)
+    pygame.draw.circle(surface, color, (x, y), radius)
+
+
+running = True
+while running:
+  for event in pygame.event.get():
+    if event.type == pygame.QUIT:
+      running = False
+    elif event.type == pygame.MOUSEBUTTONDOWN:
+      drawing = True
+      last_pos = pygame.mouse.get_pos()
+    elif event.type == pygame.MOUSEBUTTONUP:
+      drawing = False
+      last_pos = None
+      probs = predict_digit(canvas)
+    elif event.type == pygame.KEYDOWN:
+      if event.key == pygame.K_SPACE:
+        canvas.fill(CANVAS_BG)
+        probs = np.zeros(10)
+
+  if drawing:
+    current_pos = pygame.mouse.get_pos()
+    if current_pos[0] < CANVAS_SIZE:
+      if last_pos and last_pos[0] < CANVAS_SIZE:
+        draw_line_round_corners(canvas, BRUSH_COLOR, last_pos, current_pos, 14)
+      else:
+        pygame.draw.circle(canvas, BRUSH_COLOR, current_pos, 14)
+      last_pos = current_pos
+
+  screen.fill(BG_COLOR)
+  screen.blit(canvas, (0, 0))
+  pygame.draw.line(screen, BAR_BG, (CANVAS_SIZE, 0), (CANVAS_SIZE, HEIGHT), 2)
+
+  ui_x = CANVAS_SIZE + 25
+  screen.blit(title_font.render("Live Neural Activation", True, TEXT_BRIGHT), (ui_x, 15))
+
+  pred = np.argmax(probs)
+  has_drawing = np.max(probs) > 0
+
+  bar_x = ui_x + 65
+  bar_max_width = 220
+  bar_height = 14
+
+  for i, p in enumerate(probs):
+    y_pos = 60 + (i * 22)
+    is_winner = i == pred and has_drawing
+    accent = ACCENT_COLOR if is_winner else TEXT_BRIGHT
+    text_color = TEXT_BRIGHT if is_winner else TEXT_DIM
+
+    screen.blit(label_font.render(f"{i}", True, text_color), (ui_x, y_pos - 3))
+    pygame.draw.rect(screen, BAR_BG, (bar_x, y_pos, bar_max_width, bar_height), border_radius=4)
+
+    fill_width = int(p * bar_max_width)
+    if fill_width > 0:
+      pygame.draw.rect(screen, accent, (bar_x, y_pos, fill_width, bar_height), border_radius=4)
+
+    pct_text = label_font.render(f"{p * 100:04.1f}%", True, text_color)
+    screen.blit(pct_text, (bar_x + bar_max_width + 10, y_pos - 3))
+
+  guess_str = str(pred) if has_drawing else "?"
+  guess_color = ACCENT_COLOR if has_drawing else TEXT_DIM
+
+  guess_label = title_font.render("NETWORK GUESS: ", True, TEXT_DIM)
+  screen.blit(guess_label, (ui_x, HEIGHT - 55))
+
+  guess_value = big_font.render(guess_str, True, guess_color)
+  screen.blit(guess_value, (ui_x + 200, HEIGHT - 75))
+
+  screen.blit(label_font.render("[ Spacebar to Clear Canvas ]", True, BAR_BG), (20, HEIGHT - 30))
+
+  pygame.display.flip()
+
+pygame.quit()

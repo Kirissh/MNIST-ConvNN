@@ -9,9 +9,10 @@ import torch.nn.functional as F
 import torch.optim as optim
 from sklearn.metrics import classification_report, confusion_matrix
 from torch.utils.data import DataLoader
-from torchvision import datasets, transforms
+from torchvision import datasets
 
-from model import MNISTCNN
+from model import SimpleCNN
+from preprocess import MNIST_TRANSFORM
 
 
 def plot_training_curves(history, output_dir):
@@ -106,7 +107,7 @@ def evaluate(model, test_loader, device):
   return accuracy, all_labels, all_preds
 
 
-def train(epochs=15, batch_size=64, lr=0.001, data_dir="data", output="mnist_cnn.pt", viz_dir="outputs"):
+def train(epochs=15, batch_size=64, lr=0.001, data_dir="data", output="cnn_weights.pth", viz_dir="outputs"):
   device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
   output_dir = Path(viz_dir)
   output_dir.mkdir(parents=True, exist_ok=True)
@@ -114,10 +115,7 @@ def train(epochs=15, batch_size=64, lr=0.001, data_dir="data", output="mnist_cnn
   print(f"Using device: {device}")
   print(f"Training for {epochs} epochs\n")
 
-  transform = transforms.Compose([
-    transforms.ToTensor(),
-    transforms.Normalize((0.1307,), (0.3081,)),
-  ])
+  transform = MNIST_TRANSFORM
 
   train_loader = DataLoader(
     datasets.MNIST(data_dir, train=True, download=True, transform=transform),
@@ -130,7 +128,7 @@ def train(epochs=15, batch_size=64, lr=0.001, data_dir="data", output="mnist_cnn
     shuffle=False,
   )
 
-  model = MNISTCNN().to(device)
+  model = SimpleCNN().to(device)
   optimizer = optim.Adam(model.parameters(), lr=lr)
   history = {"train_loss": [], "train_acc": [], "test_acc": []}
 
@@ -230,7 +228,7 @@ if __name__ == "__main__":
   parser.add_argument("--batch-size", type=int, default=64)
   parser.add_argument("--lr", type=float, default=0.001)
   parser.add_argument("--data-dir", default="data")
-  parser.add_argument("--output", default="mnist_cnn.pt")
+  parser.add_argument("--output", default="cnn_weights.pth")
   parser.add_argument("--viz-dir", default="outputs")
   args = parser.parse_args()
   train(

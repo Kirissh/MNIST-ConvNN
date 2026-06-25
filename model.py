@@ -3,7 +3,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 
-class MNISTCNN(nn.Module):
+class SimpleCNN(nn.Module):
   def __init__(self):
     super().__init__()
     self.conv1 = nn.Conv2d(1, 32, kernel_size=3, padding=1)
@@ -22,14 +22,3 @@ class MNISTCNN(nn.Module):
     x = F.relu(self.fc1(x))
     x = self.dropout2(x)
     return self.fc2(x)
-
-
-def load_model(weights_path, device=None):
-  if device is None:
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
-  model = MNISTCNN().to(device)
-  state = torch.load(weights_path, map_location=device, weights_only=True)
-  model.load_state_dict(state)
-  model.eval()
-  return model, device
