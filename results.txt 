@@ -1,0 +1,68 @@
+---
+pid: 9848
+cwd: "/Users/kirissh/cnn for mnist"
+command: "cd \"/Users/kirissh/cnn for mnist\" && pip install -q matplotlib scikit-learn && python train.py --epochs 15"
+started_at: 2026-06-25T14:36:21.802Z
+running_for_ms: 686078   
+---
+Using device: cpu
+Training for 15 epochs
+
+Epoch  1/15 | loss: 0.2121 | train acc: 93.57% | test acc: 98.41%
+Epoch  2/15 | loss: 0.0864 | train acc: 97.43% | test acc: 98.76%
+Epoch  3/15 | loss: 0.0663 | train acc: 98.01% | test acc: 99.00%
+Epoch  4/15 | loss: 0.0546 | train acc: 98.31% | test acc: 99.31%
+Epoch  5/15 | loss: 0.0505 | train acc: 98.42% | test acc: 99.22%
+Epoch  6/15 | loss: 0.0450 | train acc: 98.62% | test acc: 99.27%
+Epoch  7/15 | loss: 0.0413 | train acc: 98.70% | test acc: 99.42%
+Epoch  8/15 | loss: 0.0405 | train acc: 98.78% | test acc: 99.40%
+Epoch  9/15 | loss: 0.0324 | train acc: 99.02% | test acc: 99.33%
+Epoch 10/15 | loss: 0.0321 | train acc: 98.97% | test acc: 99.36%
+Epoch 11/15 | loss: 0.0302 | train acc: 99.05% | test acc: 99.33%
+Epoch 12/15 | loss: 0.0301 | train acc: 99.00% | test acc: 99.29%
+Epoch 13/15 | loss: 0.0256 | train acc: 99.17% | test acc: 99.29%
+Epoch 14/15 | loss: 0.0255 | train acc: 99.17% | test acc: 99.37%
+Epoch 15/15 | loss: 0.0245 | train acc: 99.19% | test acc: 99.43%
+
+Saved model to mnist_cnn.pt
+
+==================================================
+FINAL RESULTS
+==================================================
+Final test accuracy: 99.43%
+Best test accuracy:  99.43% (epoch 15)
+Final train accuracy: 99.19%
+Final train loss:     0.0245
+
+Classification Report:
+
+              precision    recall  f1-score   support
+
+           0     0.9939    0.9980    0.9959       980
+           1     0.9921    0.9991    0.9956      1135
+           2     0.9952    0.9961    0.9956      1032
+           3     0.9970    0.9931    0.9950      1010
+           4     0.9949    0.9919    0.9934       982
+           5     0.9899    0.9933    0.9916       892
+           6     0.9958    0.9937    0.9948       958
+           7     0.9980    0.9893    0.9936      1028
+           8     0.9959    0.9959    0.9959       974
+           9     0.9901    0.9921    0.9911      1009
+
+    accuracy                         0.9943     10000
+   macro avg     0.9943    0.9942    0.9943     10000
+weighted avg     0.9943    0.9943    0.9943     10000
+
+
+Visualizations saved:
+  - outputs/training_curves.png
+  - outputs/confusion_matrix.png
+  - outputs/sample_predictions.png
+  - outputs/training_summary.json
+  - outputs/classification_report.txt
+
+---
+exit_code: 0
+elapsed_ms: 688019
+ended_at: 2026-06-25T14:47:49.821Z
+---
