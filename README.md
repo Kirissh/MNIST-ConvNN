@@ -2,7 +2,7 @@
 
 A PyTorch implementation of a CNN for digit classification on the MNIST dataset with impressive accuracy results.
 
-## 📊 Results
+## Results
 
 | Metric | Value |
 |--------|-------|
@@ -17,7 +17,7 @@ All digits achieved 99%+ precision and recall across the board:
 - **Best Class**: Digit 3 (99.70% precision, 99.31% recall)
 - **Consistent Performance**: Macro average of 99.43% across all 10 digits
 
-## 🏗️ Model Architecture
+## Model Architecture
 
 ```
 MNISTCNN(
@@ -32,7 +32,7 @@ MNISTCNN(
 )
 ```
 
-## ⚙️ Training Configuration
+## Training Configuration
 
 | Parameter | Value |
 |-----------|-------|
@@ -48,7 +48,7 @@ MNISTCNN(
 - **Dropout Layers**: 25% after conv layers, 50% after first FC layer to prevent overfitting
 - **Normalization**: MNIST standard normalization (mean=0.1307, std=0.3081)
 
-## 📈 Training Process
+## Training Process
 
 The model quickly converges to excellent performance:
 - **Epoch 1**: 93.57% train → 98.41% test (aggressive initial learning)
@@ -57,7 +57,7 @@ The model quickly converges to excellent performance:
 
 The low final loss (0.0245) and minimal gap between train/test accuracy indicate excellent generalization with the dropout regularization preventing overfitting.
 
-## 📁 Project Structure
+## Project Structure
 
 ```
 .
@@ -75,7 +75,7 @@ The low final loss (0.0245) and minimal gap between train/test accuracy indicate
     └── training_summary.json
 ```
 
-## 🚀 Quick Start
+## Quick Start
 
 ```bash
 # Install dependencies
@@ -99,7 +99,7 @@ python train.py \
   --viz-dir ./outputs
 ```
 
-## 📦 Dependencies
+## Dependencies
 
 - **torch** ≥ 2.0.0
 - **torchvision** ≥ 0.15.0
@@ -109,7 +109,7 @@ python train.py \
 - **Pillow** ≥ 10.0.0
 - **pygame** ≥ 2.5.0
 
-## 📊 Visualizations
+## Visualizations
 
 The training script automatically generates:
 1. **training_curves.png** - Loss decay and accuracy improvement over epochs
@@ -118,9 +118,8 @@ The training script automatically generates:
 4. **training_summary.json** - Complete training metadata & metrics
 
 ## 💡 Key Takeaways
-
-✅ **99.43% test accuracy** - State-of-the-art MNIST performance
-✅ **Efficient regularization** - Dropout prevents overfitting while maintaining accuracy
-✅ **Fast convergence** - Target accuracy reached by epoch 4
-✅ **Balanced architecture** - Two conv blocks + two FC layers with appropriate dropout
-✅ **Great generalization** - Minimal train/test gap indicates robust learning
+**99.43% test accuracy** - State-of-the-art MNIST performance
+**Efficient regularization** - Dropout prevents overfitting while maintaining accuracy
+**Fast convergence** - Target accuracy reached by epoch 4
+**Balanced architecture** - Two conv blocks + two FC layers with appropriate dropout
+**Great generalization** - Minimal train/test gap indicates robust learning
