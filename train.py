@@ -111,7 +111,16 @@ def evaluate(model, data_loader, device):
   return accuracy, avg_loss, all_labels, all_preds
 
 
-def train(epochs=15, batch_size=64, lr=0.001, data_dir="data", output="cnn_weights.pth", viz_dir="outputs"):
+def train(
+  epochs=15,
+  batch_size=64,
+  lr=0.001,
+  data_dir="data",
+  output="cnn_weights.pth",
+  viz_dir="outputs",
+  use_wandb=False,
+  wandb_project="MNIST ConvNN",
+):
   device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
   output_dir = Path(viz_dir)
   output_dir.mkdir(parents=True, exist_ok=True)
@@ -134,96 +143,145 @@ def train(epochs=15, batch_size=64, lr=0.001, data_dir="data", output="cnn_weigh
 
   model = SimpleCNN().to(device)
   optimizer = optim.Adam(model.parameters(), lr=lr)
-  history = {"train_loss": [], "train_acc": [], "test_acc": []}
+  history = {"train_loss": [], "train_acc": [], "test_loss": [], "test_acc": []}
 
-  for epoch in range(1, epochs + 1):
-    model.train()
-    running_loss = 0.0
-    correct = 0
-    total = 0
+  if use_wandb:
+    import wandb
 
-    for images, labels in train_loader:
-      images, labels = images.to(device), labels.to(device)
-      optimizer.zero_grad()
-      outputs = model(images)
-      loss = F.cross_entropy(outputs, labels)
-      loss.backward()
-      optimizer.step()
-
-      running_loss += loss.item() * images.size(0)
-      correct += outputs.argmax(dim=1).eq(labels).sum().item()
-      total += labels.size(0)
-
-    train_loss = running_loss / total
-    train_acc = 100.0 * correct / total
-    test_acc, _, _ = evaluate(model, test_loader, device)
-
-    history["train_loss"].append(train_loss)
-    history["train_acc"].append(train_acc)
-    history["test_acc"].append(test_acc)
-
-    print(
-      f"Epoch {epoch:2d}/{epochs} | "
-      f"loss: {train_loss:.4f} | "
-      f"train acc: {train_acc:.2f}% | "
-      f"test acc: {test_acc:.2f}%"
+    wandb.init(
+      project=wandb_project,
+      name=f"CNN_bs{batch_size}_lr{lr}_ep{epochs}",
+      config={
+        "model": "SimpleCNN",
+        "lr": lr,
+        "batch_size": batch_size,
+        "epochs": epochs,
+        "optimizer": "Adam",
+        "dataset": "MNIST",
+        "conv1_channels": 32,
+        "conv2_channels": 64,
+        "hidden_dim": 128,
+        "num_classes": 10,
+      },
     )
 
-  output_path = Path(output)
-  torch.save(model.state_dict(), output_path)
-  print(f"\nSaved model to {output_path}")
+  try:
+    for epoch in range(1, epochs + 1):
+      model.train()
+      running_loss = 0.0
+      correct = 0
+      total = 0
 
-  final_acc, y_true, y_pred = evaluate(model, test_loader, device)
-  report = classification_report(y_true, y_pred, digits=4)
+      for images, labels in train_loader:
+        images, labels = images.to(device), labels.to(device)
+        optimizer.zero_grad()
+        outputs = model(images)
+        loss = F.cross_entropy(outputs, labels)
+        loss.backward()
+        optimizer.step()
 
-  print("\n" + "=" * 50)
-  print("FINAL RESULTS")
-  print("=" * 50)
-  print(f"Final test accuracy: {final_acc:.2f}%")
-  print(f"Best test accuracy:  {max(history['test_acc']):.2f}% (epoch {history['test_acc'].index(max(history['test_acc'])) + 1})")
-  print(f"Final train accuracy: {history['train_acc'][-1]:.2f}%")
-  print(f"Final train loss:     {history['train_loss'][-1]:.4f}")
-  print("\nClassification Report:\n")
-  print(report)
+        running_loss += loss.item() * images.size(0)
+        correct += outputs.argmax(dim=1).eq(labels).sum().item()
+        total += labels.size(0)
 
-  curves_path = plot_training_curves(history, output_dir)
-  cm_path = plot_confusion_matrix(y_true, y_pred, output_dir)
-  samples_path = plot_sample_predictions(model, test_loader, device, output_dir)
+      train_loss = running_loss / total
+      train_acc = 100.0 * correct / total
+      test_acc, test_loss, _, _ = evaluate(model, test_loader, device)
 
-  summary = {
-    "epochs": epochs,
-    "device": str(device),
-    "final_test_accuracy": round(final_acc, 4),
-    "best_test_accuracy": round(max(history["test_acc"]), 4),
-    "best_epoch": history["test_acc"].index(max(history["test_acc"])) + 1,
-    "final_train_accuracy": round(history["train_acc"][-1], 4),
-    "final_train_loss": round(history["train_loss"][-1], 6),
-    "history": history,
-    "visualizations": {
-      "training_curves": str(curves_path),
-      "confusion_matrix": str(cm_path),
-      "sample_predictions": str(samples_path),
-    },
-  }
+      history["train_loss"].append(train_loss)
+      history["train_acc"].append(train_acc)
+      history["test_loss"].append(test_loss)
+      history["test_acc"].append(test_acc)
 
-  summary_path = output_dir / "training_summary.json"
-  with open(summary_path, "w") as f:
-    json.dump(summary, f, indent=2)
+      print(
+        f"Epoch {epoch:2d}/{epochs} | "
+        f"loss: {train_loss:.4f} | "
+        f"train acc: {train_acc:.2f}% | "
+        f"test acc: {test_acc:.2f}%"
+      )
 
-  report_path = output_dir / "classification_report.txt"
-  with open(report_path, "w") as f:
-    f.write(f"Final test accuracy: {final_acc:.2f}%\n")
-    f.write(f"Best test accuracy: {max(history['test_acc']):.2f}%\n\n")
-    f.write(report)
+      if use_wandb:
+        wandb.log({
+          "train_loss": train_loss,
+          "train_acc": train_acc,
+          "test_loss": test_loss,
+          "test_acc": test_acc,
+          "epoch": epoch,
+        })
 
-  print("\nVisualizations saved:")
-  print(f"  - {curves_path}")
-  print(f"  - {cm_path}")
-  print(f"  - {samples_path}")
-  print(f"  - {summary_path}")
-  print(f"  - {report_path}")
+    output_path = Path(output)
+    torch.save(model.state_dict(), output_path)
+    print(f"\nSaved model to {output_path}")
 
-  return model, history, final_acc
+    final_acc, final_loss, y_true, y_pred = evaluate(model, test_loader, device)
+    report = classification_report(y_true, y_pred, digits=4)
+    best_test_acc = max(history["test_acc"])
+    best_epoch = history["test_acc"].index(best_test_acc) + 1
+
+    print("\n" + "=" * 50)
+    print("FINAL RESULTS")
+    print("=" * 50)
+    print(f"Final test accuracy: {final_acc:.2f}%")
+    print(f"Best test accuracy:  {best_test_acc:.2f}% (epoch {best_epoch})")
+    print(f"Final train accuracy: {history['train_acc'][-1]:.2f}%")
+    print(f"Final train loss:     {history['train_loss'][-1]:.4f}")
+    print("\nClassification Report:\n")
+    print(report)
+
+    curves_path = plot_training_curves(history, output_dir)
+    cm_path = plot_confusion_matrix(y_true, y_pred, output_dir)
+    samples_path = plot_sample_predictions(model, test_loader, device, output_dir)
+
+    summary = {
+      "epochs": epochs,
+      "device": str(device),
+      "final_test_accuracy": round(final_acc, 4),
+      "best_test_accuracy": round(best_test_acc, 4),
+      "best_epoch": best_epoch,
+      "final_train_accuracy": round(history["train_acc"][-1], 4),
+      "final_train_loss": round(history["train_loss"][-1], 6),
+      "history": history,
+      "visualizations": {
+        "training_curves": str(curves_path),
+        "confusion_matrix": str(cm_path),
+        "sample_predictions": str(samples_path),
+      },
+    }
+
+    summary_path = output_dir / "training_summary.json"
+    with open(summary_path, "w") as f:
+      json.dump(summary, f, indent=2)
+
+    report_path = output_dir / "classification_report.txt"
+    with open(report_path, "w") as f:
+      f.write(f"Final test accuracy: {final_acc:.2f}%\n")
+      f.write(f"Best test accuracy: {best_test_acc:.2f}%\n\n")
+      f.write(report)
+
+    print("\nVisualizations saved:")
+    print(f"  - {curves_path}")
+    print(f"  - {cm_path}")
+    print(f"  - {samples_path}")
+    print(f"  - {summary_path}")
+    print(f"  - {report_path}")
+
+    if use_wandb:
+      wandb.log({
+        "final_test_accuracy": final_acc,
+        "final_test_loss": final_loss,
+        "best_test_accuracy": best_test_acc,
+        "best_epoch": best_epoch,
+        "training_curves": wandb.Image(str(curves_path)),
+        "confusion_matrix": wandb.Image(str(cm_path)),
+        "sample_predictions": wandb.Image(str(samples_path)),
+      })
+      if wandb.run is not None:
+        wandb.save(str(output_path))
+
+    return model, history, final_acc
+  finally:
+    if use_wandb:
+      wandb.finish()
 
 
 if __name__ == "__main__":
@@ -234,6 +292,8 @@ if __name__ == "__main__":
   parser.add_argument("--data-dir", default="data")
   parser.add_argument("--output", default="cnn_weights.pth")
   parser.add_argument("--viz-dir", default="outputs")
+  parser.add_argument("--wandb", action="store_true", help="Log metrics to Weights & Biases")
+  parser.add_argument("--wandb-project", default="MNIST ConvNN", help="W&B project name")
   args = parser.parse_args()
   train(
     epochs=args.epochs,
@@ -242,4 +302,6 @@ if __name__ == "__main__":
     data_dir=args.data_dir,
     output=args.output,
     viz_dir=args.viz_dir,
+    use_wandb=args.wandb,
+    wandb_project=args.wandb_project,
   )
