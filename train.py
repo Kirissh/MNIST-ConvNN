@@ -86,25 +86,29 @@ def plot_sample_predictions(model, test_loader, device, output_dir, num_samples=
   return path
 
 
-def evaluate(model, test_loader, device):
+def evaluate(model, data_loader, device):
   model.eval()
   all_preds = []
   all_labels = []
   correct = 0
   total = 0
+  running_loss = 0.0
 
   with torch.no_grad():
-    for images, labels in test_loader:
-      images = images.to(device)
+    for images, labels in data_loader:
+      images, labels = images.to(device), labels.to(device)
       outputs = model(images)
+      loss = F.cross_entropy(outputs, labels)
       preds = outputs.argmax(dim=1)
       all_preds.extend(preds.cpu().tolist())
       all_labels.extend(labels.tolist())
-      correct += preds.eq(labels.to(device)).sum().item()
+      running_loss += loss.item() * labels.size(0)
+      correct += preds.eq(labels).sum().item()
       total += labels.size(0)
 
   accuracy = 100.0 * correct / total
-  return accuracy, all_labels, all_preds
+  avg_loss = running_loss / total
+  return accuracy, avg_loss, all_labels, all_preds
 
 
 def train(epochs=15, batch_size=64, lr=0.001, data_dir="data", output="cnn_weights.pth", viz_dir="outputs"):
