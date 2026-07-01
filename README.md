@@ -4,6 +4,7 @@ A PyTorch implementation of a CNN for digit classification on the MNIST dataset 
 
 ## Results
 
+
 | Metric | Value |
 |--------|-------|
 | **Final Test Accuracy** | **99.43%** |
